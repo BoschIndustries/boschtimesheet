@@ -1,0 +1,85 @@
+﻿<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bosch Timesheet</title><style>body{font-family:Arial,sans-serif;background:#f4f6f9;margin:0;padding:20px;max-width:1400px;margin:auto}h1{margin:0}.print-title{display:none}.toolbar,.cards{display:flex;gap:10px;flex-wrap:wrap}.panel{background:#fff;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);margin-bottom:15px}.card{flex:1;min-width:180px;color:#fff;padding:15px;border-radius:10px;font-weight:bold}.b{background:#2563eb}.o{background:#f59e0b}.g{background:#10b981}.p{background:#7c3aed}table{width:100%;border-collapse:collapse;background:#fff}th,td{border:1px solid #ddd;padding:6px;text-align:center}th{background:#e5e7eb;position:sticky;top:0}input,select,button,textarea{padding:6px}textarea{width:100%;height:90px}button{cursor:pointer}.small{width:70px}.location-col{width:120px}.nights-col{width:60px}.loa-col{width:60px}.location-input{width:110px}.nights-input{width:50px}.loa-input{width:50px}input[type="time"]{width:90px}input[type="checkbox"]{width:20px;height:20px;padding:0;box-sizing:border-box;cursor:pointer}#printNotes{display:none}
+@media print {
+
+    @page {
+        size: landscape;
+        margin: 0.15in;
+    }
+
+    body {
+        zoom: 90%;
+        background: white;
+        margin: 0;
+        padding: 0;
+    }
+
+    .toolbar,
+    .cards,
+    .copy-col,
+    button,
+    select {
+        display: none !important;
+    }
+
+    table {
+        width: 100%;
+        font-size: 8px;
+    }
+
+    .nights-col {
+        width: 30px !important;
+    }
+
+    th,
+    td {
+        padding: 0px !important;
+        height: 9px !important;
+        line-height: 9px !important;
+    }
+
+    textarea {
+        height: 30px !important;
+        max-height: 30px !important;
+        overflow: hidden !important;
+        font-size: 8px !important;
+        resize: none;
+    }
+
+    input:not([type="checkbox"]) {
+        border: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    input[type="checkbox"] {
+        width: 10px !important;
+        height: 10px !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box;
+        cursor: pointer;
+        appearance: auto;
+        -webkit-appearance: checkbox;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+}
+
+@media print {
+    .employee-entry,
+    .screen-title {
+        display: none !important;
+    }
+
+    .print-title {
+        display: block !important;
+    }
+
+    .panel {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+}</style></head><body><div class="print-layout"><div class="panel"><div class="employee-entry"><label for="employeeName">Employee Name:</label> <input id="employeeName" type="text"></div><h1 class="screen-title">Bosch Timesheet</h1><h1 class="print-title">Employee Name: <span id="employeeNamePrint"></span></h1><div class="toolbar print-hide"><button onclick="newPeriod()">New Period</button><button onclick="deletePeriod()">Delete Period</button><button onclick="savePDF()">Save PDF</button><button onclick="clearTable()">Clear Table</button><select id=history onchange='loadPeriod(this.value)'></select></div></div><div class='cards print-hide'><div class='card b'>Regular<br><span id=reg>0</span></div><div class='card o'>OT<br><span id=ot>0</span></div><div class='card g'>Total<br><span id=total>0</span></div><div class='card p'>LOA Total<br><span id=loat>0</span></div></div><table><thead><tr><th>Date</th><th>Day</th><th>Start</th><th>End</th><th>Hours</th><th class=location-col>Location</th><th class=nights-col>Nights</th><th class=loa-col>LOA</th><th class=copy-col>Copy</th></tr></thead><tbody id=tb></tbody></table><div id="printNotes"></div><div class='panel notes-panel'><h3>Notes / Reimbursements</h3><textarea id=notes></textarea></div></div><script>const KEY='boschV6';let db=JSON.parse(localStorage.getItem(KEY)||'{"periods":[],"days":{}}');function save(){localStorage.setItem(KEY,JSON.stringify(db))}function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}function normalizePeriods(){let normalized=db.periods.map(p=>{let parts=p.split('-');return fmt(new Date(Number(parts[0]),Number(parts[1])-1,21));});let unique=[...new Set(normalized)].sort();if(unique.length!==db.periods.length||unique.some((p,i)=>p!==db.periods[i])){db.periods=unique;save();}}function formatPeriodName(startDate){let start=new Date(startDate+'T00:00:00');let end=new Date(start.getFullYear(),start.getMonth()+1,20);let options={month:'short',day:'numeric',year:'numeric'};return start.toLocaleDateString('en-US',options).replace(',','')+' - '+end.toLocaleDateString('en-US',options).replace(',','');}function ensure(){let n=new Date();let s=n.getDate()>=21?new Date(n.getFullYear(),n.getMonth(),21):new Date(n.getFullYear(),n.getMonth()-1,21);s=fmt(s);if(!db.periods.includes(s)){db.periods.push(s);save();}}function refresh(){let h=document.getElementById('history');h.innerHTML='';db.periods.slice().reverse().forEach(p=>{let o=document.createElement('option');o.value=p;o.textContent=formatPeriodName(p);h.appendChild(o)});if(h.options.length)loadPeriod(h.options[0].value)}function newPeriod(){let last=db.periods.sort().slice(-1)[0];let d=new Date(last+'T00:00:00');let year=d.getFullYear();let month=d.getMonth()+1;if(month>11){month=0;year++;}let nextPeriodStart=new Date(year,month,21);db.periods.push(fmt(nextPeriodStart));save();refresh();}function deletePeriod(){let p=history.value;if(!p)return;if(confirm('Delete '+p+'?')){db.periods=db.periods.filter(x=>x!==p);save();refresh();}}function clearTable(){if(!confirm("Are you sure you want to clear all entries in this pay period? This cannot be undone.")){return;}let start=history.value;let s=new Date(start+'T00:00:00'),e=new Date(s.getFullYear(),s.getMonth()+1,20);for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){let ds=fmt(new Date(d));if(db.days[ds]){delete db.days[ds].st;delete db.days[ds].en;delete db.days[ds].loc;delete db.days[ds].n;delete db.days[ds].loa;}}save();loadPeriod(start);alert("Pay period has been cleared.");}function copyPreviousDay(ds){let date=new Date(ds+'T00:00:00');date.setDate(date.getDate()-1);let previousDate=fmt(date);let previous=db.days[previousDate]||{};db.days[ds]=db.days[ds]||{};db.days[ds].st=previous.st||'';db.days[ds].en=previous.en||'';db.days[ds].loc=previous.loc||'';db.days[ds].n=previous.n||'';db.days[ds].loa=previous.loa||'';save();loadPeriod(document.getElementById('history').value);}function loadPeriod(start){history.value=start;let s=new Date(start+'T00:00:00'),e=new Date(s.getFullYear(),s.getMonth()+1,20);tb.innerHTML='';for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){let ds=fmt(new Date(d));let r=db.days[ds]||{};tb.innerHTML+=`<tr><td>${ds}</td><td>${new Date(ds+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})}</td><td><input type=time min="00:00" max="23:59" step="60" onchange="upd('${ds}','st',this.value)" value="${r.st||''}"></td><td><input type=time min="00:00" max="23:59" step="60" onchange="upd('${ds}','en',this.value)" value="${r.en||''}"></td><td id=h_${ds}>0</td><td class=location-col><input class=location-input value="${r.loc||''}" onchange="upd('${ds}','loc',this.value)"></td><td class=nights-col><input type="checkbox" class=nights-input ${r.n === 'Yes' || r.n === true ? 'checked' : ''} onchange="upd('${ds}','n',this.checked ? 'Yes' : '')"></td><td class=loa-col><input class=loa-input value="${r.loa||''}" onchange="upd('${ds}','loa',this.value)"></td><td class=copy-col><button onclick="copyPreviousDay('${ds}')" ${ds===start?'disabled':''}>Copy Previous</button></td></tr>`;}calc();}function upd(ds,k,v){db.days[ds]=db.days[ds]||{};db.days[ds][k]=v;save();calc()}function calculateWeeklyTotals(){let weeks={},days={};Object.keys(db.days).sort().forEach(ds=>{let d=db.days[ds]||{};let h=0;if(d.st&&d.en){h=(new Date('2000-01-01 '+d.en)-new Date('2000-01-01 '+d.st))/3600000;if(h<0)h=0;}let date=new Date(ds+'T00:00:00');if(isNaN(date.getTime()))return;date.setDate(date.getDate()-((date.getDay()+6)%7));let weekStart=fmt(date);let week=weeks[weekStart]||(weeks[weekStart]={hours:0,regular:0,ot:0});let regular=Math.min(h,Math.max(0,44-week.hours));let overtime=h-regular;week.hours+=h;week.regular+=regular;week.ot+=overtime;days[ds]={hours:h,regular:regular,ot:overtime,week:weekStart};});return {weeks:weeks,days:days};}function calc(){let weekly=calculateWeeklyTotals(),total=0,reg=0,ot=0,loa=0;let rows=[...tb.rows];rows.forEach(tr=>{let ds=tr.cells[0].innerText;let d=db.days[ds]||{};let day=weekly.days[ds]||{hours:0,regular:0,ot:0};document.getElementById('h_'+ds).innerText=day.hours.toFixed(1);total+=day.hours;reg+=day.regular;ot+=day.ot;loa+=Number(d.loa||0);});document.getElementById('total').innerText=total.toFixed(1);document.getElementById('reg').innerText=reg.toFixed(1);document.getElementById('ot').innerText=ot.toFixed(1);document.getElementById('loat').innerText=loa.toFixed(0);save()}function savePDF(){document.getElementById("printNotes").innerText=document.getElementById("notes").value;window.print()}const employeeNameInput=document.getElementById("employeeName"),employeeNamePrint=document.getElementById("employeeNamePrint");employeeNameInput.value=localStorage.getItem("boschEmployeeName")||"";employeeNamePrint.textContent=employeeNameInput.value;employeeNameInput.addEventListener("input",()=>{localStorage.setItem("boschEmployeeName",employeeNameInput.value);employeeNamePrint.textContent=employeeNameInput.value});normalizePeriods();ensure();refresh();</script></body></html>
